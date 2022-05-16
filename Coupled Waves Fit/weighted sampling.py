@@ -87,18 +87,22 @@ phi=-pi
 wl=np.linspace(mu-3*sigma, mu+5*sigma, 10000)
 a = rho(wl,lambda_par, mu, sigma)/sum(rho(wl,lambda_par, mu, sigma))
 from scipy.interpolate import UnivariateSpline
-spl = UnivariateSpline(wl, a, k=5, s=0)
-d=spl.derivative()(wl)
-dd=spl.derivative(2)(wl)
-wl1=wl#=np.linspace(wl[d==np.amin(d)],wl[d==np.amax(d)],  10000)
-s=100
+spl = UnivariateSpline(wl, a, k=3, s=0)
+d=spl.antiderivative()(wl)
+s=50
 y=np.linspace(d[d==np.amin(d)],d[d==np.amax(d)],  s)
 x=np.zeros(s)
 for i in range(s):
-    aus =abs(spl.derivative()(wl1)-y[i])
-    x[i]=wl1[aus==np.amin(aus)]
-#x=(x-np.amin(x))/(abs(np.amax(x)-np.amin(x)))*(wl1[-1]-wl1[0]) + wl1[0]
+    aus =abs(spl.antiderivative()(wl)-y[i])
+    x[i]=wl[aus==np.amin(aus)]
 plt.plot(wl,d/np.amax(d))
-plt.plot(wl,dd/np.amax(dd))
 plt.plot(wl,a/np.amax(a))
 plt.plot(x,x*0,"k.")
+a=rho(x,lambda_par, mu, sigma)/sum(rho(x,lambda_par, mu, sigma))
+plt.plot(x,a/np.amax(a),"g.")
+# qwe=np.zeros(len(x)-2)
+# for i in range(1,len(x)-1):
+#     qwe[i-1]= abs(x[i-1] - x[i])
+
+# plt.plot(qwe) 
+# print(sum(qwe)/len(qwe))

@@ -22,6 +22,7 @@ from scipy.optimize import curve_fit as fit
 from scipy.stats import chisquare as cs
 import scipy.integrate as integrate
 import math
+from scipy.interpolate import UnivariateSpline
 from datetime import datetime
 pi=np.pi
 rad=pi/180
@@ -91,8 +92,8 @@ def k_jz(theta, j, G,b):
     return k_jz
 def dq_j (theta, j, G,b):
     return b*np.cos(theta) - k_jz(theta, j, G, b)
-for k in range(len(foldername)):
-    wlpoints=10
+for k in range(1,2):#len(foldername)):
+    wlpoints=500
     print(foldername[k])
     data_analysis = sorted_fold_path+foldername[k]+"/Data Analysis/"
     diff_eff =  np.loadtxt(data_analysis+foldername[k]+'_diff_eff.mpa',skiprows=1)
@@ -110,8 +111,17 @@ for k in range(len(foldername)):
     
     def fit_func(x, bcr1, bcr2, mu1, phi,d):
         d=d/np.cos(tilt[k]*rad)
-        wl=np.linspace(mu1-2*sigma, mu1+4*sigma, wlpoints)
+        wl=np.linspace(mu1-3*sigma, mu1+5*sigma, 10000)
         a = rho(wl,lambda_par, mu1, sigma)/sum(rho(wl,lambda_par, mu1, sigma))
+        spl = UnivariateSpline(wl, a, k=4, s=0)
+        I=spl.antiderivative()(wl)
+        y=np.linspace(I[I==np.amin(I)],I[I==np.amax(I)],  wlpoints)
+        xp=np.zeros(wlpoints)
+        for i in range(wlpoints):
+            aus =abs(spl.antiderivative()(wl)-y[i])
+            xp[i]=wl[aus==np.amin(aus)]
+        wl=xp.copy()
+        a=rho(xp,lambda_par, mu, sigma)/sum(rho(xp,lambda_par, mu, sigma))
         th=np.linspace(diff_eff[0,0]*rad-3*div,diff_eff[-1,0]*rad+3*div, wlpoints)
         tx=np.zeros(len(diff_eff[:,0]),dtype=int)
         for i in range(len(diff_eff[:,0])):
@@ -165,6 +175,7 @@ for k in range(len(foldername)):
             eta_fit[:,i]=eta_ang[:,tx[i]]
         aaa=eta_fit.ravel()
         return aaa
+    
     P0= fit_res[0]
     B=([2, 0, 1.5e-3,-2*pi,50],[8, 6, 5.5e-3,2*pi,150])
     ff=diff_eff_fit.ravel()
@@ -181,14 +192,29 @@ for k in range(len(foldername)):
             wlpoints=10**i*wlpoints
     except RuntimeError:
         print("Error: fit not found")
+    wlpoints=wlpoints//10
     print(wlpoints)
-    now1=datetime.now()
+
     print(p)
-    print(np.diag(cov)**0.5)
+    # print(np.diag(cov)**0.5)
+    
     def plot_func(th, bcr1, bcr2, mu1,phi,d):
         d=d/np.cos(tilt[k]*rad)
-        wl=np.linspace(mu1-2*sigma, mu1+4*sigma, 1000)
+        wl=np.linspace(mu1-3*sigma, mu1+5*sigma, 10000)
         a = rho(wl,lambda_par, mu1, sigma)/sum(rho(wl,lambda_par, mu1, sigma))
+        # plt.plot(wl,a/np.amax(a))
+        spl = UnivariateSpline(wl, a, k=4, s=0)
+        I=spl.antiderivative()(wl)
+        y=np.linspace(I[I==np.amin(I)],I[I==np.amax(I)],  wlpoints)
+        xp=np.zeros(wlpoints)
+        for i in range(wlpoints):
+            aus =abs(spl.antiderivative()(wl)-y[i])
+            xp[i]=wl[aus==np.amin(aus)]
+        wl=xp.copy()
+        a=rho(xp,lambda_par, mu1, sigma)/sum(rho(xp,lambda_par, mu1, sigma))
+        # plt.plot(xp,xp*0,"k.")
+        # print(sum(a))
+        # plt.plot(xp,a/np.amax(a),".")
         S=np.zeros((2*n_diff+1,len(th)),dtype=np.complex)
         eta=S.copy().real
         eta_aus=eta.copy()
@@ -233,11 +259,14 @@ for k in range(len(foldername)):
         return eta_ang
     with open(data_analysis+foldername[k]+'_fit_results.mpa', 'w') as f:
         np.savetxt(f,(p,np.diag(cov)**0.5), header="bcr1 bcr2 mu phi thickness", fmt="%.6f")
+    #print("here")
     eta=plot_func(thx, *p)
+    #print("here")
     # bbb=eta.ravel()
     # plt.plot(bbb)
     fig, ax = plt.subplots(n_diff+2,figsize=(10,10))
     ax[0].set_title(foldername[k])
+    now1=datetime.now()
     print("fit time=",now1-now)
     ax[0].plot(thx,eta[n_diff,:])
     ax[0].plot(diff_eff[:,0]*rad,diff_eff_fit[n_diff,:],'o')
