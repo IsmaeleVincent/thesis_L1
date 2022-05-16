@@ -67,14 +67,14 @@ sigma=0.0006873016655595522
 """
 Angular distribution: Gaussian
 """
-div=0.0006
+div=0.0006/2
 def ang_gauss(x,x0):
     sig=div
     return 1/((2*pi)**0.5*sig)*np.exp(-(x-x0)**2/(2*sig**2))
 
 
 ##############################################################################
-
+k=4
 n_diff= 4 #number of peaks for each side, for example: n=2 for 5 diffracted waves
 
 LAM= 0.5 #grating constant in micrometers
@@ -87,22 +87,40 @@ phi=-pi
 wl=np.linspace(mu-3*sigma, mu+5*sigma, 10000)
 a = rho(wl,lambda_par, mu, sigma)/sum(rho(wl,lambda_par, mu, sigma))
 from scipy.interpolate import UnivariateSpline
-spl = UnivariateSpline(wl, a, k=3, s=0)
-d=spl.antiderivative()(wl)
-s=50
+# spl = UnivariateSpline(wl, a, k=3, s=0)
+# d=spl.antiderivative()(wl)
+# s=50
+# y=np.linspace(d[d==np.amin(d)],d[d==np.amax(d)],  s)
+# x=np.zeros(s)
+# for i in range(s):
+#     aus =abs(spl.antiderivative()(wl)-y[i])
+#     x[i]=wl[aus==np.amin(aus)]
+# plt.plot(wl,d/np.amax(d))
+# plt.plot(wl,a/np.amax(a))
+# plt.plot(x,x*0,"k.")
+# a=rho(x,lambda_par, mu, sigma)/sum(rho(x,lambda_par, mu, sigma))
+# plt.plot(x,a/np.amax(a),"g.")
+data_analysis = sorted_fold_path+foldername[k]+"/Data Analysis/"
+diff_eff =  np.loadtxt(data_analysis+foldername[k]+'_diff_eff.mpa',skiprows=1)
+x1=diff_eff[:,0]*rad
+th=np.linspace(x1[0]-3*div,x1[-1]+3*div,10000)
+print(x1)
+asd=np.zeros(10000)
+for i in range(len(x1)):
+    asd += ang_gauss(th,x1[i])
+spl=UnivariateSpline(th, asd, k=3, s=0)
+d=spl.antiderivative()(th)
+plt.plot(th, asd/np.amax(asd))
+plt.plot(th, d/np.amax(d))
+s=len(x1)*100
 y=np.linspace(d[d==np.amin(d)],d[d==np.amax(d)],  s)
 x=np.zeros(s)
 for i in range(s):
-    aus =abs(spl.antiderivative()(wl)-y[i])
-    x[i]=wl[aus==np.amin(aus)]
-plt.plot(wl,d/np.amax(d))
-plt.plot(wl,a/np.amax(a))
+    aus =abs(spl.antiderivative()(th)-y[i])
+    x[i]=th[aus==np.amin(aus)]
 plt.plot(x,x*0,"k.")
-a=rho(x,lambda_par, mu, sigma)/sum(rho(x,lambda_par, mu, sigma))
-plt.plot(x,a/np.amax(a),"g.")
-# qwe=np.zeros(len(x)-2)
-# for i in range(1,len(x)-1):
-#     qwe[i-1]= abs(x[i-1] - x[i])
+plt.plot(x1,x1*0,"r.")
+
 
 # plt.plot(qwe) 
 # print(sum(qwe)/len(qwe))

@@ -122,8 +122,23 @@ for k in range(1,2):#len(foldername)):
             xp[i]=wl[aus==np.amin(aus)]
         wl=xp.copy()
         a=rho(xp,lambda_par, mu, sigma)/sum(rho(xp,lambda_par, mu, sigma))
-        th=np.linspace(diff_eff[0,0]*rad-3*div,diff_eff[-1,0]*rad+3*div, len(diff_eff[:,0])+wlpoints)
+        th=np.linspace(diff_eff[0,0]*rad-3*div,diff_eff[-1,0]*rad+3*div, 10000)
         tx=np.zeros(len(diff_eff[:,0]),dtype=int)
+        asd=np.zeros(10000)
+        for i in range(len(diff_eff[:,0])):
+            asd += ang_gauss(th,diff_eff[i,0]*rad)
+        spl=UnivariateSpline(th, asd, k=3, s=0)
+        I=spl.antiderivative()(th)
+        plt.plot(th, asd/np.amax(asd))
+        plt.plot(th, I/np.amax(I))
+        y=np.linspace(I[I==np.amin(I)],I[I==np.amax(I)], len(diff_eff[:,0])*wlpoints//3)
+        xp=np.zeros(len(diff_eff[:,0])*wlpoints//3)
+        for i in range(len(y)):
+            aus =abs(spl.antiderivative()(th)-y[i])
+            xp[i]=th[aus==np.amin(aus)]
+        th=xp.copy()
+        plt.plot(th,th*0,".")
+        plt.plot(diff_eff[:,0]*rad, diff_eff[:,0]*0,".")
         for i in range(len(diff_eff[:,0])):
             for j in range(1,len(th)-1):
                 if(th[j-1]<=x[i]*rad and th[j+1]>=x[i]*rad):
@@ -179,6 +194,7 @@ for k in range(1,2):#len(foldername)):
         return aaa
     
     P0= fit_res[0]
+    p=P0
     B=([2, 0, 1.5e-3,-2*pi,50],[8, 6, 5.5e-3,2*pi,150])
     ff=diff_eff_fit.ravel()
     xx=np.zeros(len(diff_eff[:,0])*5)
@@ -186,14 +202,16 @@ for k in range(1,2):#len(foldername)):
     now=datetime.now()
     current_time = now.strftime("%H:%M:%S")
     print("Start Time =", current_time)
-    #plt.plot(ff)
-    try:
-        for i in range(3):
-            p,cov=fit(fit_func,xx,ff, p0=P0, bounds=B)
-            P0=p
-            wlpoints=10**i*wlpoints
-    except RuntimeError:
-        print("Error: fit not found")
+    sdnlknm=fit_func(xx,*p)
+    # plt.plot(ff)
+    # plt.plot(fit_func(xx,*p))
+    # try:
+    #     for i in range(1):
+    #         p,cov=fit(fit_func,xx,ff, p0=P0, bounds=B)
+    #         P0=p
+    #         wlpoints=10**i*wlpoints
+    # except RuntimeError:
+    #     print("Error: fit not found")
     wlpoints=wlpoints//10
     print(wlpoints)
 
@@ -259,38 +277,38 @@ for k in range(1,2):#len(foldername)):
             for j in range(len(eta[0,:])):
                 eta_ang[i,j] = sum(ang_gauss(th,th[j])*eta[i,:])/sum(ang_gauss(th,th[j]))
         return eta_ang
-    with open(data_analysis+foldername[k]+'_fit_results.mpa', 'w') as f:
-        np.savetxt(f,(p,np.diag(cov)**0.5), header="bcr1 bcr2 mu phi thickness", fmt="%.6f")
-    #print("here")
-    eta=plot_func(thx, *p)
-    #print("here")
-    # bbb=eta.ravel()
-    # plt.plot(bbb)
-    fig, ax = plt.subplots(n_diff+2,figsize=(10,10))
-    ax[0].set_title(foldername[k])
-    now1=datetime.now()
-    print("fit time=",now1-now)
-    ax[0].plot(thx,eta[n_diff,:])
-    ax[0].plot(diff_eff[:,0]*rad,diff_eff_fit[n_diff,:],'o')
-    for i in range(1,n_diff+1):
-        ax[i].plot(thx,eta[n_diff-i,:])
-        ax[i].plot(thx,eta[n_diff+i,:])
-        if i<3:
-            ax[i].plot(diff_eff[:,0]*rad,diff_eff[:,6-2*i],'o')
-            ax[i].plot(diff_eff[:,0]*rad,diff_eff[:,6+2*i],'o')
-    # ax[n_diff+1].plot(th, sum_diff)
-    # ax[n_diff+1].set_ylim([0.5,1.5])
-    #   plt.errorbar(diff_eff[:,0],diff_eff[:,2*j+2],yerr=diff_eff[:,2*j+1],capsize=1)
+#     with open(data_analysis+foldername[k]+'_fit_results.mpa', 'w') as f:
+#         np.savetxt(f,(p,np.diag(cov)**0.5), header="bcr1 bcr2 mu phi thickness", fmt="%.6f")
+#     #print("here")
+#     eta=plot_func(thx, *p)
+#     #print("here")
+#     # bbb=eta.ravel()
+#     # plt.plot(bbb)
+#     fig, ax = plt.subplots(n_diff+2,figsize=(10,10))
+#     ax[0].set_title(foldername[k])
+#     now1=datetime.now()
+#     print("fit time=",now1-now)
+#     ax[0].plot(thx,eta[n_diff,:])
+#     ax[0].plot(diff_eff[:,0]*rad,diff_eff_fit[n_diff,:],'o')
+#     for i in range(1,n_diff+1):
+#         ax[i].plot(thx,eta[n_diff-i,:])
+#         ax[i].plot(thx,eta[n_diff+i,:])
+#         if i<3:
+#             ax[i].plot(diff_eff[:,0]*rad,diff_eff[:,6-2*i],'o')
+#             ax[i].plot(diff_eff[:,0]*rad,diff_eff[:,6+2*i],'o')
+#     # ax[n_diff+1].plot(th, sum_diff)
+#     # ax[n_diff+1].set_ylim([0.5,1.5])
+#     #   plt.errorbar(diff_eff[:,0],diff_eff[:,2*j+2],yerr=diff_eff[:,2*j+1],capsize=1)
 
-duration = 0.2  # seconds
+# duration = 0.2  # seconds
 
-freq = 440  # Hz
-for i in range (6):
-    os.system('play -nq -t alsa synth {} sine {}'.format(duration, freq+i%3*62))
-    if i%3==2:
-        os.system('play -nq -t alsa synth {} sine {}'.format(duration, freq))
-for i in range (2):
-    os.system('play -nq -t alsa synth {} sine {}'.format(duration, freq+2*62))
-    os.system('play -nq -t alsa synth {} sine {}'.format(duration, freq+2*62+31))
-    os.system('play -nq -t alsa synth {} sine {}'.format(duration, freq+3*62+31))
-    time.sleep(0.2)
+# freq = 440  # Hz
+# for i in range (6):
+#     os.system('play -nq -t alsa synth {} sine {}'.format(duration, freq+i%3*62))
+#     if i%3==2:
+#         os.system('play -nq -t alsa synth {} sine {}'.format(duration, freq))
+# for i in range (2):
+#     os.system('play -nq -t alsa synth {} sine {}'.format(duration, freq+2*62))
+#     os.system('play -nq -t alsa synth {} sine {}'.format(duration, freq+2*62+31))
+#     os.system('play -nq -t alsa synth {} sine {}'.format(duration, freq+3*62+31))
+#     time.sleep(0.2)
