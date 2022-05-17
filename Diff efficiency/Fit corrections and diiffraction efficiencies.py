@@ -195,32 +195,32 @@ This shows something inteesting but I'm not sure what to do with it yet
 """
 # This block plots the diffraction efficiencies
 """
-# for k in range(len(foldername)):
-#     data_analysis = sorted_fold_path+foldername[k]+"/Data Analysis/"
-#     diff_eff =  np.loadtxt(data_analysis+foldername[k]+'_diff_eff.mpa',skiprows=1)
-#     fig = plt.figure(figsize=(15,15))
-#     ax = fig.add_subplot(111)
-#     ax.set_title(foldername[k])
-#     for j in range(5):
-#         ax.plot(diff_eff[:,0],diff_eff[:,2*j+2],'o')
-#         ax.errorbar(diff_eff[:,0],diff_eff[:,2*j+2],yerr=diff_eff[:,2*j+1],capsize=1)
+for k in range(len(foldername)):
+    data_analysis = sorted_fold_path+foldername[k]+"/Data Analysis/"
+    diff_eff =  np.loadtxt(data_analysis+foldername[k]+'_diff_eff.mpa',skiprows=1)
+    fig = plt.figure(figsize=(15,15))
+    ax = fig.add_subplot(111)
+    ax.set_title(foldername[k])
+    for j in range(5):
+        ax.plot(diff_eff[:,0],diff_eff[:,2*j+2],'o')
+        ax.errorbar(diff_eff[:,0],diff_eff[:,2*j+2],yerr=diff_eff[:,2*j+1],capsize=1)
     
 
 """
 This block copies the fits in a common folder just 
 for the sake of simplicity
 """
-# if os.path.exists(allcorrectedfits):
-#     shutil.rmtree(allcorrectedfits)
-# os.makedirs(allcorrectedfits)
-# for k in range(len(foldername)):
-#     data_analysis = sorted_fold_path+foldername[k]+"/Data Analysis/"
-#     folder = sorted_fold_path+foldername[k]
-#     roi =  np.loadtxt(data_analysis+foldername[k]+'_ROI+Peaks.mpa',skiprows=1).astype(int)
-#     for y in range(len(roi[:,0])):
-#         for z in range(1,n_theta[k]+1):
-#             contfitname = foldername[k] +'_line_' +str("%0d"%(roi[0][0]+y))+'_theta'+str("%0d"%(z))+'_fit.png'
-#             try:
-#                 shutil.copy(folder+"/Data Analysis/Corrected Fits/"+contfitname, allcorrectedfits+contfitname)        
-#             except FileNotFoundError:
-#                 print("not there")
+
+if os.path.exists(allcorrectedfits):
+    shutil.rmtree(allcorrectedfits)
+for k in range(len(foldername)):
+    data_analysis = sorted_fold_path+foldername[k]+"/Data Analysis/"
+    folder = sorted_fold_path+foldername[k]
+    roi =  np.loadtxt(data_analysis+foldername[k]+'_ROI+Peaks.mpa',skiprows=1).astype(int)
+    for y in range(len(roi[:,0])):
+        for z in range(1,n_theta[k]+1):
+            contfitname = foldername[k] +'_line_' +str("%0d"%(roi[0][0]+y))+'_theta'+str("%0d"%(z))+'_fit.png'
+            try:
+                shutil.copy(folder+"/Data Analysis/Corrected Fits/"+contfitname, allcorrectedfits+contfitname)        
+            except FileNotFoundError:
+                a=0
