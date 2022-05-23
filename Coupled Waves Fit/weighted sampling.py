@@ -27,7 +27,7 @@ from scipy.interpolate import interp1d
 pi=np.pi
 rad=pi/180
 
-sorted_fold_path="/home/aaa/Desktop/Thesis/Script/Trial/Sorted data/" #insert folder of sorted meausements files
+sorted_fold_path="/home/exp-k03/Desktop/thesis/Sorted data/" #insert folder of sorted meausements files
 allmeasurements = sorted_fold_path+"All measurements/"
 allrenamed = allmeasurements +"All renamed/"
 allmatrixes = allmeasurements + "All matrixes/"
@@ -57,11 +57,20 @@ Wavelenght distribution: Exponentially Modified Gaussian
 """
 def func(l,A,mu,sig):
     return A/(2.)*np.exp(A/(2.)*(2.*mu+A*sig**2-2*l))
-def rho(l,A,mu,sig):
+def rho1(l,A,mu,sig):
     return func(l,A,mu,sig)*erfc((mu+A*sig**2-l)/(np.sqrt(2)*sig))
-lambda_par=1595.7292122046995	#+/-	147.471394720765
-mu=3.2e-3#0.004632543663155012	#+/-	5.46776175965519e-05
-sigma=0.0006873016655595522	
+
+# const=0.0052592164045898665
+# 	#+/-	147.471394720765
+mu=2e-3 #0.004632543663155012	#+/-	5.46776175965519e-05
+#lambda_par= 1/(const-mu)
+lambda_par=500
+sigma=0.0007
+sigma1= (sigma**2+1/lambda_par**2)**0.5
+def rho(l,A,mu,sigma):
+    sigma=sigma+l*0.1
+    mu=mu+1/lambda_par
+    return 1/((2*pi)**0.5*sigma)*np.exp(-(l-mu)**2/(2*sigma**2))
 ##############################################################################
 
 """
@@ -74,7 +83,7 @@ def ang_gauss(x,x0):
 
 
 ##############################################################################
-k=4
+k=2
 n_diff= 4 #number of peaks for each side, for example: n=2 for 5 diffracted waves
 
 LAM= 0.5 #grating constant in micrometers
@@ -84,9 +93,9 @@ bcr2=-2
 bcr3=0
 n_0 =1.
 phi=-pi
-wl=np.linspace(mu-3*sigma, mu+5*sigma, 10000)
-a = rho(wl,lambda_par, mu, sigma)/sum(rho(wl,lambda_par, mu, sigma))
-from scipy.interpolate import UnivariateSpline
+wl=np.linspace(mu-2.5*sigma,mu+1/lambda_par+3*sigma1, 10000)
+# a = rho(wl,lambda_par, mu, sigma)/sum(rho(wl,lambda_par, mu, sigma))
+# from scipy.interpolate import UnivariateSpline
 # spl = UnivariateSpline(wl, a, k=3, s=0)
 # d=spl.antiderivative()(wl)
 # s=50
@@ -96,30 +105,48 @@ from scipy.interpolate import UnivariateSpline
 #     aus =abs(spl.antiderivative()(wl)-y[i])
 #     x[i]=wl[aus==np.amin(aus)]
 # plt.plot(wl,d/np.amax(d))
-# plt.plot(wl,a/np.amax(a))
+# plt.plot(wl,a/np.amax(a),"b")
 # plt.plot(x,x*0,"k.")
 # a=rho(x,lambda_par, mu, sigma)/sum(rho(x,lambda_par, mu, sigma))
 # plt.plot(x,a/np.amax(a),"g.")
-data_analysis = sorted_fold_path+foldername[k]+"/Data Analysis/"
-diff_eff =  np.loadtxt(data_analysis+foldername[k]+'_diff_eff.mpa',skiprows=1)
-x1=diff_eff[:,0]*rad
-th=np.linspace(x1[0]-3*div,x1[-1]+3*div,10000)
-print(x1)
-asd=np.zeros(10000)
-for i in range(len(x1)):
-    asd += ang_gauss(th,x1[i])
-spl=UnivariateSpline(th, asd, k=3, s=0)
-d=spl.antiderivative()(th)
-plt.plot(th, asd/np.amax(asd))
-plt.plot(th, d/np.amax(d))
-s=len(x1)*100
+# print(a[0],a[-1])
+a = rho1(wl,lambda_par, mu, sigma)/sum(rho1(wl,lambda_par, mu, sigma))
+from scipy.interpolate import UnivariateSpline
+spl = UnivariateSpline(wl, a, k=3, s=0)
+d=spl.antiderivative()(wl)
+s=100
 y=np.linspace(d[d==np.amin(d)],d[d==np.amax(d)],  s)
 x=np.zeros(s)
 for i in range(s):
-    aus =abs(spl.antiderivative()(th)-y[i])
-    x[i]=th[aus==np.amin(aus)]
+    aus =abs(spl.antiderivative()(wl)-y[i])
+    x[i]=wl[aus==np.amin(aus)]
+plt.plot(wl,d/np.amax(d))
+plt.plot(wl,a/np.amax(a))
 plt.plot(x,x*0,"k.")
-plt.plot(x1,x1*0,"r.")
+a=rho1(x,lambda_par, mu, sigma)/sum(rho1(x,lambda_par, mu, sigma))
+plt.plot(x,a/np.amax(a),"g.")
+
+print(a[0],a[-1])
+# data_analysis = sorted_fold_path+foldername[k]+"/Data Analysis/"
+# diff_eff =  np.loadtxt(data_analysis+foldername[k]+'_diff_eff.mpa',skiprows=1)
+# x1=diff_eff[:,0]*rad
+# th=np.linspace(x1[0]-3*div,x1[-1]+3*div,10000)
+# print(x1)
+# asd=np.zeros(10000)
+# for i in range(len(x1)):
+#     asd += ang_gauss(th,x1[i])
+# spl=UnivariateSpline(th, asd, k=3, s=0)
+# d=spl.antiderivative()(th)
+# plt.plot(th, asd/np.amax(asd))
+# plt.plot(th, d/np.amax(d))
+# s=len(x1)*100
+# y=np.linspace(d[d==np.amin(d)],d[d==np.amax(d)],  s)
+# x=np.zeros(s)
+# for i in range(s):
+#     aus =abs(spl.antiderivative()(th)-y[i])
+#     x[i]=th[aus==np.amin(aus)]
+# plt.plot(x,x*0,"k.")
+# plt.plot(x1,x1*0,"r.")
 
 
 # plt.plot(qwe) 

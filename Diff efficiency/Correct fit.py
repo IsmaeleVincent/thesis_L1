@@ -14,7 +14,7 @@ from scipy.optimize import curve_fit as fit
 from scipy.stats import chisquare as cs
 import math
 
-sorted_fold_path="/home/aaa/Desktop/Thesis/Script/Trial/Sorted data/" #insert folder of sorted meausements files
+sorted_fold_path="/home/exp-k03/Desktop/thesis/Sorted data/" #insert folder of sorted meausements files
 allmeasurements = sorted_fold_path+"All measurements/"
 allrenamed = allmeasurements +"All renamed/"
 allmatrixes = allmeasurements + "All matrixes/"
@@ -48,7 +48,7 @@ def distrp3(x,A0,A1,A2,x0,x1,x2,s0,s1,s2):
 def distr1(x, A, x0,sx):
     return bg1+A/sx*np.exp(-(x-x0)**2/(2*(sx)**2))
 
-k=8
+k=4
 bckg=0.
 data_analysis = sorted_fold_path+foldername[k]+"/Data Analysis/"
 matrixes = [np.loadtxt(sorted_fold_path+foldername[k]+"/Matrixes/"+foldername[k]+"_"+str("%03d" % (j,))+".mpa") for j in range (1,n_theta[k]+1)]
@@ -60,8 +60,8 @@ zabsmax = xyzabsmax[2][0]
 roi =  np.loadtxt(data_analysis+foldername[k]+'_ROI+Peaks.mpa',skiprows=1).astype(int)
 print(foldername[k])
 data_and_fit = np.loadtxt(data_analysis+foldername[k]+'_fit+data.mpa',skiprows=1)
-line=69
-theta=15
+line=70
+theta=9
 y=np.where(roi[:,0]==line)[0][0]
 z=theta
 if (roi[y][2] == roi[y][1]):
@@ -80,9 +80,9 @@ if (roi[y][3]>1 or roi[y][4]>1):
     #     P0p = [1.,0.,0., 0., abs(roi[y][6]-xabsmax)-2, abs(roi[y][6]-xabsmax)+3, 0.5, 1., 1.5]
     #     boundp = [[0.2,0,0,-2.,abs(roi[y][6]-xabsmax)-4, abs(roi[y][6]-xabsmax)+2,0.01,0.1,0.1],[2.,0.4,1e-8,2.,abs(roi[y][2]-xabsmax),abs(roi[y][2]-xabsmax), 1,1.5,1.5]]
     P0m = [1.,1.,0.5, 0., abs(roi[y][5]-xabsmax)-2, abs(roi[y][5]-xabsmax)+8, 0.5, 0.1, 2]
-    boundm = [[0.0,0.,0.,-2.,5, 9,0.01,0.5,0.1],[1.5,1.5,0.6,2.,10,15, 1.,1.5,1.5]]
-    P0p = [1.,0.,0., 0., 4, 10, 0.5, 1., 1.5]
-    boundp = [[0.3,0.,0.001,-2.,4., 9,0.01,0.8,0.1],[2.,1.5,0.0025,2.,8,15, 1,1.,1.5]]
+    boundm = [[0.0,0.55,0.,-2.,5, 11,0.01,1,0.1],[1.5,1.5,0.6,2.,10,15, 1.,1.5,1.5]]
+    P0p = [1.,0.,0., 0., 4, 10, 0.5, 1., 2]
+    boundp = [[0.3,0.,0.,-2.,4., 8,0.01,0.8,1],[2.,1.5,0.001,2.,8,15, 1,1.,2]]
     P0maus=P0m.copy()
     P0paus=P0p.copy()
     boundmaus=boundm.copy()
@@ -158,32 +158,32 @@ if (roi[y][3]>1 or roi[y][4]>1):
             P0p=P0paus.copy()
             boundm=boundmaus.copy()
             boundp=boundpaus.copy()
-            if(roi[y][3]==0):
-                boundm[1][1] = 1e-8
-                P0m[1]=0.
-                boundm[1][2] = 1e-8
-                P0m[2]=0.
-            if(z>zmin1-2):
-                if(z>zmin1+2):
-                    boundm[1][2] = 1e-8
-                    P0m[2]=0.
-                    boundp[1][1]= 1.5
-                else:
-                    boundm[1][2] = 0.1
-                    boundm[1][8] = 1.
-                    P0m[2]=0.09
-            if(roi[y][4]==0):
-                boundp[1][1] = 1e-8
-                P0p[1]=0.
-                boundp[1][2] = 1e-8
-                P0p[2]=0.
-            if(z>zmin2-4):
-                if(z>zmin2+3):
-                    boundp[1][2] = 0.3
-                    boundp[1][8] = 1.5
-                else:
-                    boundp[1][2] = 0.1
-                    boundp[1][8] = 1.
+            # if(roi[y][3]==0):
+            #     boundm[1][1] = 1e-8
+            #     P0m[1]=0.
+            #     boundm[1][2] = 1e-8
+            #     P0m[2]=0.
+            # if(z>zmin1-2):
+            #     if(z>zmin1+2):
+            #         boundm[1][2] = 1e-8
+            #         P0m[2]=0.
+            #         boundp[1][1]= 1.5
+            #     else:
+            #         boundm[1][2] = 0.1
+            #         boundm[1][8] = 1.
+            #         P0m[2]=0.09
+            # if(roi[y][4]==0):
+            #     boundp[1][1] = 1e-8
+            #     P0p[1]=0.
+            #     boundp[1][2] = 1e-8
+            #     P0p[2]=0.
+            # if(z>zmin2-4):
+            #     if(z>zmin2+3):
+            #         boundp[1][2] = 0.3
+            #         boundp[1][8] = 1.5
+            #     else:
+            #         boundp[1][2] = 0.1
+            #         boundp[1][8] = 1.
             for j in range(len(P0p)):
                 if (P0m[j]<=boundm[0][j] or P0m[j]>=boundm[1][j]):
                     P0m[j]=(boundm[1][j]-boundm[0][j])/3+boundm[0][j]
@@ -317,4 +317,4 @@ for k in range(len(foldername)):
                 shutil.copy(folder+"/Data Analysis/Control Fits/"+contfitname, allcontrolfits+contfitname)        
             except FileNotFoundError:
                 a=0
-                #print("not there")
+                # print("not there")
