@@ -31,6 +31,7 @@ from scipy.stats import chisquare as cs
 import scipy.integrate as integrate
 import math
 from scipy.interpolate import UnivariateSpline
+from scipy.interpolate import interp1d
 from datetime import datetime
 from multiprocessing import Pool
 pi=np.pi
@@ -73,19 +74,22 @@ def rho(l,A,mu,sig):
 #     sigma=sigma+l*0.1
 #     mu=mu+1/lambda_par
 #     return 1/((2*pi)**0.5*sigma)*np.exp(-(l-mu)**2/(2*sigma**2))
-lambda_par0=1353.5	#+/-	147.471394720765
-mu=3.2e-3#0.004632543663155012	#+/-	5.46776175965519e-05
-sigma=0.0004
+tau0=0.001	#+/-	147.471394720765
+mu0=2.5e-3#0.004632543663155012	#+/-	5.46776175965519e-05
+sigma0=0.0005
+M = mu0+tau0
+sigma1=(sigma0**2+tau0**2)**0.5
 ##############################################################################
 
 """
 Angular distribution: Gaussian
 """
-div=0.0015/2
-def ang_gauss(x,x0):
+div=0.001/3
+def ang_gauss(x):
     sig=div
-    return 1/((2*pi)**0.5*sig)*np.exp(-(x-x0)**2/(2*sig**2))
-
+    return 1/((2*pi)**0.5*sig)*np.exp(-x**2/(2*sig**2))
+gx=np.arange(-3*div,3*div, 1e-6)
+gauss_conv = ang_gauss(gx)/sum(ang_gauss(gx))
 
 ##############################################################################
 
@@ -98,8 +102,9 @@ bcr2=0.
 bcr3=0
 n_0 =1.
 phi=0
-d0=78
-
+phi1=0
+d0=100
+krange=np.arange(len(foldername))#[0,2,3,4,5] #
 
 def k_jz(theta, j, G,b):
     k_jz=b*(1-(np.sin(theta)-j*G/b)**2)**0.5
@@ -109,48 +114,49 @@ def dq_j (theta, j, G,b):
 fitting=1
 plotting=1
 save_fit_res=1
-wlpoints=100
+wlpoints=50
+wlp=5e-9
 def process_fit(k):
     # print(foldername[k])
     nowf=datetime.now()
     data_analysis = sorted_fold_path+foldername[k]+"/Data Analysis/"
-    diff_eff =  np.loadtxt(data_analysis+foldername[k]+'_diff_eff.mpa',skiprows=1)
-    fit_res =  np.loadtxt(data_analysis+foldername[k]+'_fit_results.mpa',skiprows=1)
+    diff_eff =  np.loadtxt(data_analysis+foldername[k]+'_diff_eff_1line.mpa',skiprows=1)
+    # data_analysis1 = sorted_fold_path+foldername[8]+"/Data Analysis/"
+    fit_res =  np.loadtxt(data_analysis+foldername[k]+'_fit_results_1line.mpa',skiprows=1)
+    # diff_eff = diff_eff[diff_eff[:,0]<=0]
+    diff_eff_aus=diff_eff.copy()
     for i in range(len(diff_eff[:,0])): 
-        s=sum(diff_eff[i,1:])
-        diff_eff[i,1:]=diff_eff[i,1:]/s
+        s=sum(diff_eff[i,2::2])
+        diff_eff[i,2:]=diff_eff[i,2:]/s
+    #diff_eff[]
+    # diff_eff_err= diff_eff[:,3::2]
+    # diff_eff_err=np.divide(diff_eff_err,diff_eff[:,2::2])
+    # diff_eff_err[np.isnan(diff_eff_err)]=0
     diff_eff_fit=np.zeros((5, len(diff_eff[:,5])))
     diff_eff_fit[2,:]=diff_eff[:,2*2+2].copy()
     for i in range(1,3):
         diff_eff_fit[2-i,:]=diff_eff[:,6-2*i].copy()
         diff_eff_fit[2+i,:]=diff_eff[:,6+2*i].copy()
-    def fit_func(x, bcr1, bcr2, bcr3, mu1,phi,phi1,d, lambda_par, sigma,x00):
+    def fit_func(x, bcr1, bcr2, mu1,sigma, tau, x00,d):
+        # tau=M-mu1
+        # sigma=(sigma1**2-tau0**2)**0.5
+        lambda_par=1/tau
+        sigma1=(sigma**2+tau**2)**0.5
         x=diff_eff[:,0]+x00
-        sigma1= (sigma**2+1/lambda_par**2)**0.5
-        d=d/np.cos(tilt[k]*rad)
+        # d=d0/np.cos((tilt[k]+zeta0)*rad)
+        d=d/np.cos((tilt[k])*rad)
         wl=np.linspace(mu1-2.5*sigma, mu1+1/lambda_par+3.5*sigma1, 10000)
         a = rho(wl,lambda_par, mu1, sigma)/sum(rho(wl,lambda_par, mu1, sigma))
         spl = UnivariateSpline(wl, a, k=4, s=0)
         I=spl.antiderivative()(wl)
-        y=np.linspace(I[I==np.amin(I)],I[I==np.amax(I)],  wlpoints)
-        xp=np.zeros(wlpoints)
-        for i in range(wlpoints):
+        y=np.arange(I[I==np.amin(I)],I[I==np.amax(I)]+wlp,  wlp)
+        xp=np.zeros(len(y))
+        for i in range(len(y)):
             aus =abs(spl.antiderivative()(wl)-y[i])
             xp[i]=wl[aus==np.amin(aus)]
         wl=xp.copy()
         a=rho(xp,lambda_par, mu1, sigma)/sum(rho(xp,lambda_par, mu1, sigma))
-        th=np.linspace(diff_eff[0,0]*rad-3*div,diff_eff[-1,0]*rad+4*div, len(diff_eff[:,0])*5)
-        tx=np.zeros(len(diff_eff[:,0]),dtype=int)
-        for i in range(len(diff_eff[:,0])):
-            for j in range(1,len(th)-1):
-                if(th[j-1]<=x[i]*rad and th[j+1]>=x[i]*rad):
-                    tx[i]=j
-        for i in range(len(tx)):
-            th[tx[i]]=x[i]*rad
-        
-        # plt.plot(x[0:len(tx)]*rad,x[0:len(tx)]*0,"k.")
-        # plt.plot(th[tx],th[tx]*0 +1,"b.")
-        # print("here")
+        th=[x[0]*rad-3*div,*x*rad,x[-1]*rad+3*div]
         S=np.zeros((2*n_diff+1,len(th)),dtype=complex)
         eta=S.copy().real
         eta_aus=eta.copy()
@@ -164,7 +170,7 @@ def process_fit(k):
             for t in range(len(th)):
                 A = np.zeros((2*n_diff+1,2*n_diff+1), dtype=complex)
                 for i in range(len(A[0])):
-                    A[i][i]=b**2*(n_0**2-1)/(2*k_jz(th[t],i-n_diff,G,b))-dq_j(th[t],i-n_diff,G,b)
+                    A[i][i]=-dq_j(th[t],i-n_diff,G,b)
                     if(i+1<len(A[0])):
                         A[i][i+1]=b**2*n_0*n_1/(2*k_jz(th[t],i-n_diff,G,b))
                         A[i+1][i]=b**2*n_0*n_1/(2*k_jz(th[t],i-n_diff,G,b))
@@ -188,39 +194,40 @@ def process_fit(k):
                     eta_aus[i,t] = abs(S[i,t])**2*k_jz(th[t],i-n_diff,G,b)/(b*np.cos(th[t]))
                 sum_diff[t] = sum(eta[:,t])
             eta+=eta_aus*a[l]
-        eta_ang = eta.copy()
-        for i in range(len(eta[:,0])):
-            for j in range(len(tx)):
-                eta_ang[i,tx[j]] = sum(ang_gauss(th,th[tx[j]])*eta[i,:])/sum(ang_gauss(th,th[tx[j]]))
-        eta_fit=np.zeros((2*n_diff+1,len(diff_eff[:,0])))
-        for i in range(len(tx)):
-            eta_fit[:,i]=eta_ang[:,tx[i]]
-        aaa=eta_fit[n_diff-2:n_diff+3].ravel()
+        eta_ang = np.zeros((2*n_diff+1,len(diff_eff[:,0])))
+        x_int=np.arange(th[0],th[-1], 1e-6)
+        for i in range(n_diff*2+1):
+            f_int = interp1d(th,eta[i,:], kind="cubic")
+            conv=np.convolve(f_int(x_int),gauss_conv,mode="same")
+            f_int = interp1d(x_int,conv, kind="cubic")
+            eta_ang[i,:]=f_int(x*rad)
+        aaa=eta_ang[n_diff-2:n_diff+3].ravel()
         #plt.plot(aaa)
         return aaa
-    P0= fit_res[0] # np.zeros(10) # [8, 2,0, 2.01e-3, pi,0, 75, 1000, 0.0004] #  [*fit_res[0,:-1],0.0005] #  [5,0,2.6e-3] # 
-    # P0[0]=7.5
-    # P0[1]=1.5
-    # P0[2]=0
-    # P0[3]=2.1e-3
-    # P0[4]=0
+    P0=  fit_res[0] #np.zeros(7) # [*fit_res[0,:-1],0,0]  # fit_res[0] #  [8, 2,0, 2.01e-3, pi,0, 75, 1000, 0.0004] #    [5,0,2.6e-3] # 
+    # P0[0]=10
+    # P0[1]=1
+    # P0[2]=3e-3
+    # P0[3]=0.00055
+    # P0[4]=0.001
     # P0[5]=0
-    # P0[6]=78
-    # P0[7]=500
+    P0[6]=78
     # P0[8]=0.0005
     # P0[9]=0.0
     if (fitting):
-        B=([6, 0.5, 0, 1.8e-3,-pi/9,-pi/8,73,300,0.00035,-0.003/rad],[15, 2,0.3, 3.5e-3, pi/9,pi/8,80,650,0.0006, 0.003/rad])     
+        B=([5, 0, 2.1e-3, 4e-4, 0.0005, -0.00001/rad, 70],[10, 2, 2.8e-3, 8e-4, 0.002, 0.00001/rad, 90])
         for i in range(len(B[0])):
             if (P0[i]<B[0][i] or P0[i]>B[1][i]):
                 P0[i]=(B[1][i]+B[0][i])/2
         ff=diff_eff_fit.ravel()
+        fferr=diff_eff[:,3::2].ravel()
+        fferr[fferr==0]=1e-8
         xx=np.zeros(len(diff_eff[:,0])*5)
         xx[0:len(diff_eff[:,0])]=diff_eff[:,0]
         #plt.plot(ff,"k")
         try:
             for i in range(1):
-                p,cov=fit(fit_func,xx,ff, p0=P0,bounds=B)
+                p,cov=fit(fit_func,xx,ff, p0=P0,bounds=B, sigma=fferr)
                 P0=p
                 print(p)
         except RuntimeError:
@@ -230,63 +237,59 @@ def process_fit(k):
         now1f=datetime.now()
         print("fit time "+foldername[k]+"=",now1f-nowf)
         if (save_fit_res):
-            with open(data_analysis+foldername[k]+'_fit_results.mpa', 'w') as f:
+            with open(data_analysis+foldername[k]+'_fit_results_1line.mpa', 'w') as f:
                 np.savetxt(f,(p,np.diag(cov)**0.5), header="bcr1 bcr2 mu phi thickness", fmt="%.6f")
-   
+
 if (fitting):
     now=datetime.now()
     current_time = now.strftime("%H:%M:%S")
     print("Start Time =", current_time)
     if __name__=="__main__":
         pool=Pool()
-        pool.map(process_fit,np.arange(len(foldername)))
+        pool.map(process_fit,krange)#len(foldername)))
     now1=datetime.now()
     print("fit time=",now1-now)
 if (plotting):
-    for k in range(len(foldername)):
+    for k in krange:
         if (not fitting):
             now1=datetime.now()
         print(foldername[k])
         data_analysis = sorted_fold_path+foldername[k]+"/Data Analysis/"
-        diff_eff =  np.loadtxt(data_analysis+foldername[k]+'_diff_eff.mpa',skiprows=1)
-        fit_res =  np.loadtxt(data_analysis+foldername[k]+'_fit_results.mpa',skiprows=1)
+        diff_eff =  np.loadtxt(data_analysis+foldername[k]+'_diff_eff_1line.mpa',skiprows=1)
+        fit_res =  np.loadtxt(data_analysis+foldername[k]+'_fit_results_1line.mpa',skiprows=1)
         p=fit_res[0]
         print(p)
         for i in range(len(diff_eff[:,0])): 
-            s=sum(diff_eff[i,1:])
-            diff_eff[i,1:]=diff_eff[i,1:]/s
+            s=sum(diff_eff[i,2::2])
+            diff_eff[i,2:]=diff_eff[i,2:]/s
+        # diff_eff_err= diff_eff[:,3::2]
+        # diff_eff_err=np.divide(diff_eff_err,diff_eff[:,2::2])
+        # diff_eff_err[np.isnan(diff_eff_err)]=0
         diff_eff_fit=np.zeros((5, len(diff_eff[:,5])))
         diff_eff_fit[2,:]=diff_eff[:,2*2+2].copy()
         for i in range(1,3):
             diff_eff_fit[2-i,:]=diff_eff[:,6-2*i].copy()
             diff_eff_fit[2+i,:]=diff_eff[:,6+2*i].copy()
-        def plot_func(x, bcr1, bcr2, bcr3, mu1, phi,phi1,d,lambda_par, sigma, x00):
+        def plot_func(x, bcr1, bcr2, mu1, sigma, tau, x00,d):
+            # tau=M-mu1
+            # sigma=(sigma1**2-tau0**2)**0.5
+            lambda_par=1/tau
+            sigma1=(sigma**2+tau**2)**0.5
             x=diff_eff[:,0]+x00
-            d=d/np.cos(tilt[k]*rad)
-            sigma1= (sigma**2+1/lambda_par**2)**0.5
+            # d=d0/np.cos((tilt[k]+zeta0)*rad)
+            d=d/np.cos((tilt[k])*rad)
             wl=np.linspace(mu1-2.5*sigma, mu1+1/lambda_par+3.5*sigma1, 10000)
             a = rho(wl,lambda_par, mu1, sigma)/sum(rho(wl,lambda_par, mu1, sigma))
             spl = UnivariateSpline(wl, a, k=4, s=0)
             I=spl.antiderivative()(wl)
-            y=np.linspace(I[I==np.amin(I)],I[I==np.amax(I)],  wlpoints)
-            xp=np.zeros(wlpoints)
-            for i in range(wlpoints):
+            y=np.arange(I[I==np.amin(I)],I[I==np.amax(I)]+wlp,  wlp)
+            xp=np.zeros(len(y))
+            for i in range(len(y)):
                 aus =abs(spl.antiderivative()(wl)-y[i])
                 xp[i]=wl[aus==np.amin(aus)]
             wl=xp.copy()
             a=rho(xp,lambda_par, mu1, sigma)/sum(rho(xp,lambda_par, mu1, sigma))
-            th=np.linspace(diff_eff[0,0]*rad-3*div,diff_eff[-1,0]*rad+3*div, len(diff_eff[:,0])*5)
-            tx=np.zeros(len(diff_eff[:,0]),dtype=int)
-            for i in range(len(diff_eff[:,0])):
-                for j in range(1,len(th)-1):
-                    if(th[j-1]<=x[i]*rad and th[j+1]>=x[i]*rad):
-                        tx[i]=j
-            for i in range(len(tx)):
-                th[tx[i]]=x[i]*rad
-            
-            # plt.plot(x[0:len(tx)]*rad,x[0:len(tx)]*0,"k.")
-            # plt.plot(th[tx],th[tx]*0 +1,"b.")
-            # print("here")
+            th=[x[0]*rad-3*div,*x*rad,x[-1]*rad+3*div]
             S=np.zeros((2*n_diff+1,len(th)),dtype=complex)
             eta=S.copy().real
             eta_aus=eta.copy()
@@ -300,7 +303,7 @@ if (plotting):
                 for t in range(len(th)):
                     A = np.zeros((2*n_diff+1,2*n_diff+1), dtype=complex)
                     for i in range(len(A[0])):
-                        A[i][i]=b**2*(n_0**2-1)/(2*k_jz(th[t],i-n_diff,G,b))-dq_j(th[t],i-n_diff,G,b)
+                        A[i][i]=-dq_j(th[t],i-n_diff,G,b)
                         if(i+1<len(A[0])):
                             A[i][i+1]=b**2*n_0*n_1/(2*k_jz(th[t],i-n_diff,G,b))
                             A[i+1][i]=b**2*n_0*n_1/(2*k_jz(th[t],i-n_diff,G,b))
@@ -324,15 +327,15 @@ if (plotting):
                         eta_aus[i,t] = abs(S[i,t])**2*k_jz(th[t],i-n_diff,G,b)/(b*np.cos(th[t]))
                     sum_diff[t] = sum(eta[:,t])
                 eta+=eta_aus*a[l]
-            eta_ang = eta.copy()
-            for i in range(len(eta[:,0])):
-                for j in range(len(tx)):
-                    eta_ang[i,tx[j]] = sum(ang_gauss(th,th[tx[j]])*eta[i,:])/sum(ang_gauss(th,th[tx[j]]))
-            eta_fit=np.zeros((2*n_diff+1,len(diff_eff[:,0])))
-            for i in range(len(tx)):
-                eta_fit[:,i]=eta_ang[:,tx[i]]
-            return eta_fit
-        print(wlpoints)
+            eta_ang = np.zeros((2*n_diff+1,len(diff_eff[:,0])))
+            x_int=np.arange(th[0],th[-1], 1e-6)
+            for i in range(n_diff*2+1):
+                f_int = interp1d(th,eta[i,:], kind="cubic")
+                conv=np.convolve(f_int(x_int),gauss_conv,mode="same")
+                f_int = interp1d(x_int,conv, kind="cubic")
+                eta_ang[i,:]=f_int(x*rad)
+            return eta_ang
+        # print(wlpoints)
         thx=diff_eff[:,0]*rad
         eta=plot_func(diff_eff[:,0], *p)
         #print("here")
@@ -340,12 +343,15 @@ if (plotting):
         # plt.plot(bbb)
         fig, ax = plt.subplots(n_diff+2,figsize=(10,10))
         ax[0].set_title(foldername[k])
-        ax[0].plot(diff_eff[:,0]*rad,diff_eff_fit[2,:],'ro')
+        ax[0].plot(diff_eff[:,0]*rad,diff_eff_fit[2,:], 'ro')
+        # ax[0].errorbar(diff_eff[:,0]*rad,diff_eff_fit[2,:], yerr=diff_eff[:,7])
         ax[0].plot(thx,eta[n_diff,:],"1-")
         for i in range(1,n_diff+1):
             if i<3:
                 ax[i].plot(diff_eff[:,0]*rad,diff_eff[:,6-2*i],'o')
+                # ax[i].errorbar(diff_eff[:,0]*rad,diff_eff[:,6-2*i], yerr=diff_eff[:,7-2*i]*10)
                 ax[i].plot(diff_eff[:,0]*rad,diff_eff[:,6+2*i],'o')
+                # ax[i].errorbar(diff_eff[:,0]*rad,diff_eff[:,6+2*i], yerr=diff_eff[:,7+2*i]*10)
             ax[i].plot(thx,eta[n_diff-i,:],"1-")
             ax[i].plot(thx,eta[n_diff+i,:],"1-")   
         # ax[n_diff+1].plot(th, sum_diff)
@@ -367,57 +373,69 @@ for i in range (2):
     time.sleep(0.2)
   
 
-    
+
 """
 Merges fit results in a doc
 """
 data_analysis = sorted_fold_path+foldername[0]+"/Data Analysis/"
-fit_res =  np.loadtxt(data_analysis+foldername[0]+'_fit_results.mpa',skiprows=1)
-tot_res = np.zeros((len(foldername), 11))
+fit_res =  np.loadtxt(data_analysis+foldername[0]+'_fit_results_1line.mpa',skiprows=1)
+tot_res = np.zeros((len(foldername), 8))
+tot_cov=tot_res.copy()
 for k in range(len(foldername)):
-    print(foldername[k])
+    #print(foldername[k])
     data_analysis = sorted_fold_path+foldername[k]+"/Data Analysis/"
-    fit_res =  np.loadtxt(data_analysis+foldername[k]+'_fit_results.mpa',skiprows=1)
+    fit_res =  np.loadtxt(data_analysis+foldername[k]+'_fit_results_1line.mpa',skiprows=1)
     tot_res[k,0]=tilt[k]
     tot_res[k,1:]=fit_res[0]
+    tot_cov[k,0]=tilt[k]
+    tot_cov[k,1:]=fit_res[1]
 tot_res=tot_res[np.argsort(tot_res[:,0])]
+tot_cov=tot_cov[np.argsort(tot_cov[:,0])]
 print(tot_res)
 
-with open(sorted_fold_path+'tot_fit_results.mpa', 'w') as f:
-      np.savetxt(f,tot_res, header="tilt bcr1 bcr2 mu", fmt="%.2f "+"%.6f "*len(fit_res[0,:]))
+with open(sorted_fold_path+'tot_fit_results_1line.mpa', 'w') as f:
+      np.savetxt(f,tot_res, header="tilt bcr1 bcr2 mu sigma tau x0 d", fmt="%.2f "+"%.6f "*len(fit_res[0,:]))
+with open(sorted_fold_path+'tot_fit_covariances_1line.mpa', 'w') as f:
+      np.savetxt(f,tot_cov, header="tilt bcr1 bcr2 mu sigma tau x0 d", fmt="%.2f "+"%.6f "*len(fit_res[0,:]))
 
 """
 Plot parameters evolution
-""" 
+"""
 data_analysis = sorted_fold_path+foldername[2]+"/Data Analysis/"
-fit_res =  np.loadtxt(sorted_fold_path+'tot_fit_results.mpa',skiprows=1)
+fit_res =  np.loadtxt(sorted_fold_path+'tot_fit_results_1line.mpa',skiprows=1)
+fit_cov =  np.loadtxt(sorted_fold_path+'tot_fit_covariances_1line.mpa',skiprows=1)
 fig, ax = plt.subplots(len(fit_res[0,1:]),figsize=(10,10),sharex="col")
 #plt.subplots_adjust(hspace=0.5)
 plt.xticks(range(len(fit_res[:,0])),fit_res[:,0]) 
 
-title=["bcr1","bcr2","bcr3","mu","phi","phi1","thicknes", "lambda_par", "sigma","x0"]
-
+title=["bcr1","bcr2","mu", "sigma","tau", "x0","d"]
 for i in range(len(fit_res[0,1:])):
     ax[i].set(ylabel=title[i])
-    ax[i].plot(fit_res[:,i+1])
+    ax[i].errorbar(np.arange(len(foldername)),fit_res[:,i+1], yerr=fit_cov[:,i+1])
+    ax[i].set_ylim([np.amin(fit_res[:,i+1])*(0.9),np.amax(fit_res[:,i+1])*(1.1)])
    
 """
 """
-for k in range(len(foldername)):
+for k in krange:
     data_analysis = sorted_fold_path+foldername[k]+"/Data Analysis/"
-    fit_res =  np.loadtxt(data_analysis+foldername[k]+'_fit_results.mpa',skiprows=1)
-    mu=fit_res[0,3]
-    sigma=fit_res[0,8]
-    lambda_par=fit_res[0,7]
-    sigma1= (sigma**2+1/lambda_par**2)**0.5
+    fit_res =  np.loadtxt(data_analysis+foldername[k]+'_fit_results_1line.mpa',skiprows=1)
+    mu=fit_res[0,2]
+    # tau=M-mu
+    # sigma=(sigma1**2-tau0**2)**0.5
+    # lambda_par=1/tau
+    sigma=fit_res[0,3]
+    tau=fit_res[0,4]
+    lambda_par=1/tau
+    sigma1=(sigma**2+tau**2)**0.5
     wl=np.linspace(mu-2.5*sigma,mu+1/lambda_par+3.5*sigma1, 10000)
     a = rho(wl,lambda_par, mu, sigma)/sum(rho(wl,lambda_par, mu, sigma))
     spl = UnivariateSpline(wl, a, k=3, s=0)
     d=spl.antiderivative()(wl)
     s=wlpoints
-    y=np.linspace(d[d==np.amin(d)],d[d==np.amax(d)],  s)
-    x=np.zeros(s)
-    for i in range(s):
+    y=np.arange(d[d==np.amin(d)],d[d==np.amax(d)]+wlp,  wlp)
+    # print("points=",len(y))
+    x=np.zeros(len(y))
+    for i in range(len(y)):
         aus =abs(spl.antiderivative()(wl)-y[i])
         x[i]=wl[aus==np.amin(aus)]
     fig = plt.figure(figsize=(10,10))

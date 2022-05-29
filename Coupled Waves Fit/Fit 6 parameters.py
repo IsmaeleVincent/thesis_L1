@@ -31,6 +31,7 @@ from scipy.stats import chisquare as cs
 import scipy.integrate as integrate
 import math
 from scipy.interpolate import UnivariateSpline
+from scipy.interpolate import interp1d
 from datetime import datetime
 from multiprocessing import Pool
 pi=np.pi
@@ -81,7 +82,7 @@ sigma=0.0004
 """
 Angular distribution: Gaussian
 """
-div=0.00135/3
+div=0.0012
 def ang_gauss(x,x0):
     sig=div
     return 1/((2*pi)**0.5*sig)*np.exp(-(x-x0)**2/(2*sig**2))
@@ -106,9 +107,9 @@ def k_jz(theta, j, G,b):
     return k_jz
 def dq_j (theta, j, G,b):
     return b*np.cos(theta) - k_jz(theta, j, G, b)
-fitting=1
+fitting=0
 plotting=1
-save_fit_res=1
+save_fit_res=0
 wlpoints=50
 def process_fit(k):
     # print(foldername[k])
